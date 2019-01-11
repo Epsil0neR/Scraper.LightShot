@@ -138,10 +138,12 @@ namespace Scraper.LightShot
                 if (!string.IsNullOrWhiteSpace(match?.Value))
                 {
                     //Console.WriteLine($"{name} - downloading image.");
-                    var web = new WebClient();
-                    downloaded = true;
-                    web.DownloadFile(new Uri(match.Value), fn);
-                    //Console.WriteLine($"{name} - OK.");
+                    using (var web = new WebClient())
+                    {
+                        downloaded = true;
+                        web.DownloadFile(new Uri(match.Value), fn);
+                        //Console.WriteLine($"{name} - OK.");
+                    }
                 }
                 else
                 {
