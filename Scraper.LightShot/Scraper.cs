@@ -1,23 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Scraper.LightShot
 {
     public class Scraper : IDisposable
     {
+        public Indexer Indexer { get; }
+        public DataManager DataManager { get; }
+
+        private readonly object _lockProceedItem = new object();
+        private readonly object _lockFindNextName = new object();
         private readonly List<Regex> _regexes;
         private readonly CancellationTokenSource _ctSource;
         private readonly CancellationToken _ct;
         private readonly HttpClient _http;
 
-        public Scraper()
+        public Scraper(Indexer indexer, DataManager dataManager)
         {
+            Indexer = indexer;
+            DataManager = dataManager;
+
             _ctSource = new CancellationTokenSource();
             _ct = _ctSource.Token;
 
@@ -45,92 +54,113 @@ namespace Scraper.LightShot
             return rv;
         }
 
-        public Thread Scrap(string filter, int count)
+        public Thread Scrap(int count)
         {
             if (count < 0)
                 throw new ArgumentException("Count cannot be negative number.", nameof(count));
 
-            filter = new string(filter.ToCharArray().Where(x => char.IsLetterOrDigit(x)).Take(5).ToArray());
-
-            var thread = new Thread(() => ScrapInner(filter, count));
+            var thread = new Thread(() => ScrapInner(count));
             thread.Start();
             return thread;
         }
 
-        private void ScrapInner(string filter, int count)
+        private void ScrapInner(int count)
         {
-            var list = new List<Tuple<string, bool>>();
             for (int i = 0; i < count; i++)
             {
                 if (_ct.IsCancellationRequested)
                     break;
 
-                list.Add(ScrapItem(filter));
+                ProceedItem().Wait(_ct);
             }
         }
 
-        private Tuple<string, bool> ScrapItem(string filter)
+        private async Task ProceedItem()
         {
-            string name;
-            string fn;
-            string reason = string.Empty;
-            var downloaded = false;
-            var charsToGenerate = 6 - filter.Length;
-            do
+            try
             {
-                name = filter + NameGenerator.Generate(charsToGenerate);
-                fn = Helper.GetFilename(name);
-            } while (File.Exists(fn));
+                string name;
+                string filename;
 
-            //Console.WriteLine($"{name} - starting");
-            var url = Helper.GetHtmlUrl(name);
-
-            var get = _http.GetAsync(url, _ct);
-            get.ContinueWith(task =>
-            {
-                if (!task.IsCompleted)
+                lock (_lockProceedItem)
                 {
-                    reason = "faulted to download HTML";
-                    //Console.WriteLine($"{name} - faulted to get HTML.");
-                    return;
-                }
+                    name = FindNextName();
 
-                var htmlTask = task.Result.Content.ReadAsStringAsync();
-                htmlTask.Wait(_ct);
-
-                if (_ct.IsCancellationRequested)
-                    return;
-
-                Match match = null;
-                foreach (var regex in _regexes)
-                {
-                    match = regex.Match(htmlTask.Result);
-                    if (!string.IsNullOrWhiteSpace(match.Value))
-                        break;
-                }
-
-                if (!string.IsNullOrWhiteSpace(match?.Value))
-                {
-                    //Console.WriteLine($"{name} - downloading image.");
-                    using (var web = new WebClient())
+                    if (string.IsNullOrWhiteSpace(name))
                     {
-                        downloaded = true;
-                        web.DownloadFile(new Uri(match.Value), fn);
-                        //Console.WriteLine($"{name} - OK.");
+                        return;
                     }
+
+                    Console.WriteLine(name);
+                    filename = Helper.GetFilename(name);
+                    DataManager.StartProceeding(name, filename);
                 }
-                else
+
+                var url = Helper.GetHtmlUrl(name);
+                var page = await _http.GetAsync(url, _ct);
+                var html = await page.Content.ReadAsStringAsync();
+                var match = TryFindMatch(html);
+
+                if (string.IsNullOrWhiteSpace(match?.Value))
                 {
-                    reason = "image URL not found.";
-                    //Console.WriteLine($"{name} - image URL not found.");
+                    DataManager.SetStatus(name, ScrapEntryStatus.Failed);
+                    return;
                 }
-            }, _ct).Wait(_ct);
+
+                DataManager.SetStatus(name, ScrapEntryStatus.Downloading);
+                Download(name, new Uri(match.Value), filename); //TODO: Make async
+                DataManager.SetStatus(name, ScrapEntryStatus.Success);
+            }
+            catch (Exception e)
+            {
+                Debugger.Break();
+                Console.WriteLine(e);
+                throw;
+            }
+        }
 
 
-            var status = downloaded ? "OK" : "Faulted.";
-            Console.WriteLine($"{name} - {status} {reason}");
+        private string FindNextName()
+        {
+            lock (_lockFindNextName)
+            {
+                bool found = false;
+                string rv = null;
+                do
+                {
+                    rv = Indexer.Current;
 
-            return new Tuple<string, bool>(name, downloaded);
+                    //Check if name is not parsed yet.
+                    if (DataManager.Contains(rv)) //TODO: Check status if finds
+                        rv = null;
+
+                } while (string.IsNullOrEmpty(rv) && Indexer.MoveNext());
+
+                if (!string.IsNullOrEmpty(rv))
+                    Indexer.MoveNext();
+
+                return rv;
+            }
+        }
+
+        private Match TryFindMatch(string html)
+        {
+            foreach (var regex in _regexes)
+            {
+                var match = regex.Match(html);
+                if (!string.IsNullOrWhiteSpace(match.Value))
+                    return match;
+            }
+
+            return null;
+        }
+
+        private void Download(string name, Uri uri, string path)
+        {
+            using (var web = new WebClient())
+            {
+                web.DownloadFile(uri, path);
+            }
         }
     }
 

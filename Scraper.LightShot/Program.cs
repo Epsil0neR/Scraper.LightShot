@@ -7,7 +7,9 @@ namespace Scraper.LightShot
     {
         static void Main(string[] args)
         {
-            using (var scraper = new Scraper())
+            var dataManager = new DataManager(Path.Combine(Helper.DataFolder, "Data.db"));
+            using (var indexer = new Indexer("ddd000"))
+            using (var scraper = new Scraper(indexer, dataManager))
             {
                 int count = 0;
                 bool correctInput = false;
@@ -21,17 +23,13 @@ namespace Scraper.LightShot
                     correctInput = int.TryParse(inp, out count) && count >= 0;
                 } while (!correctInput);
 
-                Console.Write("Filter (max 5 symbols): ");
-                var filter = Console.ReadLine();
-
-
                 Console.WriteLine("Press any key to exit...");
                 Console.WriteLine();
 
-                var dataManager =new DataManager(Path.Combine(Helper.DataFolder, "Data.db"));
-                var thread = scraper.Scrap(filter, count);
+                var thread = scraper.Scrap(count);
 
                 Console.ReadKey(true);
+                thread.Abort();
             }
         }
     }
