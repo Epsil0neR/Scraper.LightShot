@@ -9,6 +9,10 @@ namespace Scraper.LightShot
         const string Chars = "0123456789abcdefghijklmnopqrstuvwxyz";
         private CharEnumerator[] _enumerators;
 
+        public Indexer(int count)
+        : this(new string(Chars[0], count))
+        { }
+
         /// <inheritdoc />
         public Indexer(string start)
         {
@@ -20,10 +24,12 @@ namespace Scraper.LightShot
                 throw new ArgumentException("Must have contain only letters and digits.", nameof(start));
 
             var length = check.Length;
-            var enumerators = new CharEnumerator[length];
+            _enumerators = new CharEnumerator[length];
             for (var i = 0; i < length; i++)
             {
-                enumerators[i] = Chars.GetEnumerator();
+                var e = Chars.GetEnumerator();
+                _enumerators[i] = e;
+                e.MoveNext();
             }
 
             MoveTo(check);
@@ -36,10 +42,13 @@ namespace Scraper.LightShot
             {
                 var c = chars[i];
                 var e = _enumerators[i];
+                e.Reset();
+                e.MoveNext();
 
                 // Move each iterator to requested char.
                 while (e.Current != c && e.MoveNext()) { }
             }
+            UpdateCurrent();
         }
 
         /// <inheritdoc />
@@ -55,6 +64,8 @@ namespace Scraper.LightShot
                     break;
 
                 e.Reset();
+                e.MoveNext();
+
                 if (i == 0)
                     return false;
             }
@@ -69,6 +80,7 @@ namespace Scraper.LightShot
             foreach (var enumerator in _enumerators)
             {
                 enumerator.Reset();
+                enumerator.MoveNext();
             }
         }
 
@@ -78,8 +90,10 @@ namespace Scraper.LightShot
         }
 
 
+        public string Current { get; private set; }
+
         /// <inheritdoc />
-        public object Current { get; private set; }
+        object IEnumerator.Current => Current;
 
 
         /// <inheritdoc />
@@ -93,5 +107,7 @@ namespace Scraper.LightShot
             _enumerators = null;
             Current = null;
         }
+
+
     }
 }
