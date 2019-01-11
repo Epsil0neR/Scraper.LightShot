@@ -4,6 +4,9 @@ using System.Linq;
 
 namespace Scraper.LightShot
 {
+    /// <summary>
+    /// Indexer for LightShot image hosting.
+    /// </summary>
     public class Indexer : IEnumerator, IDisposable
     {
         const string Chars = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -107,7 +110,5 @@ namespace Scraper.LightShot
             _enumerators = null;
             Current = null;
         }
-
-
     }
 }
