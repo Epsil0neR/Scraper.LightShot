@@ -11,10 +11,10 @@ namespace Scraper.LightShot
 {
     public class Scraper : IDisposable
     {
-        private List<Regex> _regexes;
-        private CancellationTokenSource _ctSource;
-        private CancellationToken _ct;
-        private HttpClient _http;
+        private readonly List<Regex> _regexes;
+        private readonly CancellationTokenSource _ctSource;
+        private readonly CancellationToken _ct;
+        private readonly HttpClient _http;
 
         public Scraper()
         {
@@ -37,32 +37,6 @@ namespace Scraper.LightShot
             _ctSource.Cancel();
         }
 
-
-        public void Scrap()
-        {
-            var name = "m5p54s";
-            var fn = Path.Combine(Helper.DataFolder, name);
-            var url = Helper.GetHtmlUrl(name);
-            var httpClient = GetHttpClient();
-            var webClient = new WebClient();
-
-            var get = httpClient.GetAsync(url);
-            get.ContinueWith(async task =>
-            {
-                var html = await task.Result.Content.ReadAsStringAsync();
-                Match match;
-                foreach (var regex in _regexes)
-                {
-                    match = regex.Match(html);
-                    if (!string.IsNullOrWhiteSpace(match?.Value))
-                    {
-                        webClient.DownloadFile(match.Value, $"{fn}.png");
-                        break;
-                    }
-                }
-            }, _ct).Wait(_ct);
-        }
-
         private HttpClient GetHttpClient()
         {
             var rv = new HttpClient();
@@ -79,13 +53,13 @@ namespace Scraper.LightShot
             filter = new string(filter.ToCharArray().Where(x => char.IsLetterOrDigit(x)).Take(5).ToArray());
 
             var thread = new Thread(() => ScrapInner(filter, count));
+            thread.Start();
             return thread;
         }
 
         private void ScrapInner(string filter, int count)
         {
             var list = new List<Tuple<string, bool>>();
-
             for (int i = 0; i < count; i++)
             {
                 if (_ct.IsCancellationRequested)
@@ -131,7 +105,7 @@ namespace Scraper.LightShot
                 foreach (var regex in _regexes)
                 {
                     match = regex.Match(htmlTask.Result);
-                    if (!string.IsNullOrWhiteSpace(match?.Value))
+                    if (!string.IsNullOrWhiteSpace(match.Value))
                         break;
                 }
 

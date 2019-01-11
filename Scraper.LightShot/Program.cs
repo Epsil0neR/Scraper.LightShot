@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 
 namespace Scraper.LightShot
 {
@@ -27,8 +28,8 @@ namespace Scraper.LightShot
                 Console.WriteLine("Press any key to exit...");
                 Console.WriteLine();
 
+                var dataManager =new DataManager(Path.Combine(Helper.DataFolder, "Data.db"));
                 var thread = scraper.Scrap(filter, count);
-                thread.Start();
 
                 Console.ReadKey(true);
             }

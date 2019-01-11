@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 
 namespace Scraper.LightShot
 {
@@ -23,7 +22,7 @@ namespace Scraper.LightShot
         {
             var t = typeof(Helper);
             var root = Directory.GetParent(t.Assembly.Location).FullName;
-            DataFolder = Path.Combine(root, "Data", DateTime.UtcNow.ToString("yyyy-MM-dd HHmmss"));
+            DataFolder = Path.Combine(root, "Data");
 
             HtmlUrlRoot = @"https://prnt.sc";
             ImageUrlRoot = @"https://image.prntscr.com/image";
