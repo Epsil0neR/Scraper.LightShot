@@ -59,6 +59,7 @@ namespace Scraper.LightShot
             if (count < 0)
                 throw new ArgumentException("Count cannot be negative number.", nameof(count));
 
+            //ScrapInner(count);
             var thread = new Thread(() => ScrapInner(count));
             thread.Start();
             return thread;
@@ -66,16 +67,18 @@ namespace Scraper.LightShot
 
         private void ScrapInner(int count)
         {
-            for (int i = 0; i < count; i++)
-            {
-                if (_ct.IsCancellationRequested)
-                    break;
+            var tm = new TaskManager(10, _ct, ProceedItem, count);
+            tm.Run();
+            //for (int i = 0; i < count; i++)
+            //{
+            //    if (_ct.IsCancellationRequested)
+            //        break;
 
-                ProceedItem().Wait(_ct);
-            }
+            //    ProceedItem(i).Wait(_ct);
+            //}
         }
 
-        private async Task ProceedItem()
+        private async Task ProceedItem(int i)
         {
             try
             {
@@ -87,11 +90,9 @@ namespace Scraper.LightShot
                     name = FindNextName();
 
                     if (string.IsNullOrWhiteSpace(name))
-                    {
                         return;
-                    }
 
-                    Console.WriteLine(name);
+                    Console.Title = $"Scraped {i} - {name}";
                     filename = Helper.GetFilename(name);
                     DataManager.StartProceeding(name, filename);
                 }
@@ -108,7 +109,7 @@ namespace Scraper.LightShot
                 }
 
                 DataManager.SetStatus(name, ScrapEntryStatus.Downloading);
-                Download(name, new Uri(match.Value), filename); //TODO: Make async
+                Download(new Uri(match.Value), filename); //TODO: Make async
                 DataManager.SetStatus(name, ScrapEntryStatus.Success);
             }
             catch (Exception e)
@@ -124,8 +125,7 @@ namespace Scraper.LightShot
         {
             lock (_lockFindNextName)
             {
-                bool found = false;
-                string rv = null;
+                string rv;
                 do
                 {
                     rv = Indexer.Current;
@@ -155,7 +155,7 @@ namespace Scraper.LightShot
             return null;
         }
 
-        private void Download(string name, Uri uri, string path)
+        private void Download(Uri uri, string path)
         {
             using (var web = new WebClient())
             {
