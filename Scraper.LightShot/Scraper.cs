@@ -67,7 +67,7 @@ namespace Scraper.LightShot
 
         private void ScrapInner(int count)
         {
-            var tm = new TaskManager(10, _ct, ProceedItem, count);
+            var tm = new TaskManager(1, _ct, ProceedItem, count);
             tm.Run();
             //for (int i = 0; i < count; i++)
             //{
