@@ -10,7 +10,7 @@ namespace Scraper.LightShot
 
         public static string GetFilename(string name)
         {
-            return Path.Combine(DataFolder, $"{name}.png");
+            return Path.Combine(DataFolder , name.Substring(0,2), name.Substring(2,2), $"{name}.png");
         }
 
         public static string GetHtmlUrl(string name)

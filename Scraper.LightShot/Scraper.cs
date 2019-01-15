@@ -21,6 +21,7 @@ namespace Scraper.LightShot
         private readonly CancellationTokenSource _ctSource;
         private readonly CancellationToken _ct;
         private readonly HttpClient _http;
+        private readonly List<string> _checkedDirs = new List<string>();
 
         public Scraper(Indexer indexer, DataManager dataManager)
         {
@@ -109,6 +110,9 @@ namespace Scraper.LightShot
                 }
 
                 DataManager.SetStatus(name, ScrapEntryStatus.Downloading);
+
+                CreateFolderIfMisses(filename);
+
                 Download(new Uri(match.Value), filename); //TODO: Make async
                 DataManager.SetStatus(name, ScrapEntryStatus.Success);
             }
@@ -161,6 +165,19 @@ namespace Scraper.LightShot
             {
                 web.DownloadFile(uri, path);
             }
+        }
+
+        private void CreateFolderIfMisses(string filename)
+        {
+            var dir = Path.GetDirectoryName(filename);
+
+            if (_checkedDirs.Contains(dir) || string.IsNullOrEmpty(dir))
+                return;
+
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            _checkedDirs.Insert(0, dir);
         }
     }
 

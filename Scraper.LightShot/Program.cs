@@ -5,10 +5,18 @@ namespace Scraper.LightShot
 {
     class Program
     {
+        private const int MAX_LENGTH = 6;
+
         static void Main(string[] args)
         {
+            Console.Write("Indexer start (6 symbols max): ");
+            var inp = Console.ReadLine();
+            var indexerStart = inp.Length > MAX_LENGTH ? inp.Substring(0, MAX_LENGTH) : inp;
+            while (indexerStart.Length < MAX_LENGTH)
+                indexerStart += "0";
+
             var dataManager = new DataManager(Path.Combine(Helper.DataFolder, "Data.db"));
-            using (var indexer = new Indexer("m00000"))
+            using (var indexer = new Indexer(indexerStart))
             using (var scraper = new Scraper(indexer, dataManager))
             {
                 //int count = 0;
